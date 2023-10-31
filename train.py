@@ -34,7 +34,7 @@ def parse_args():
                         choices= ["cifar-10", "cifar-100"],
                         help="Dataset to train")
 
-    parser.add_argument("--data_root", type=str, default="/data/Data",
+    parser.add_argument("--data_root", type=str, default="data",
                         help="directory of the data")
     parser.add_argument("--validation_ratio",type=float, default=0.1,
                         help="ratio to split the training set to get the validation set")
