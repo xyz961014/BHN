@@ -11,6 +11,8 @@ def get_resnet(model_name, dataset="cifar-10"):
         model = models.resnet18()
     elif model_name == "resnet34":
         model = models.resnet34()
+    elif model_name == "resnet50":
+        model = models.resnet50()
     else:
         raise ValueError("model_name not supported")
 
