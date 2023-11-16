@@ -31,6 +31,7 @@ def instanceDependent(eta, features, labels, K):
     q_vector = torch.randn(n,1) * 0.1 + eta  # probabilities for each label to be corrupted, not yet truncated
     q_vector = torch.clamp(q_vector, 0, 1)  # truncate
     w = torch.randn(d, K)   # weights for projection
+    new_labels = torch.clone(labels)
     for i in range(n):
         p = features[i,:] @ w   # we will eventually sample the new label according to distribution in vector p
                                 # mathematically, p has size (1xK), but is represented here with size 10,
@@ -38,7 +39,7 @@ def instanceDependent(eta, features, labels, K):
         p = q_vector[i] * torch.softmax(p, 0)
         p[labels[i]] = 1 - q_vector[i]
         new_label = torch.multinomial(p, num_samples=1).item()  # sampling according to distribution given by p
-        labels[i] = new_label
-    return labels
+        new_labels[i] = new_label
+    return new_labels
 
 
