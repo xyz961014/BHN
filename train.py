@@ -121,11 +121,11 @@ class ModelLightning(LightningModule):
     def configure_optimizers(self):
         optimizer = torch.optim.SGD(self.parameters(), 
                                     lr=self.args.lr, 
-                                    momentum=args.momentum,
-                                    weight_decay=args.weight_decay)
+                                    momentum=self.args.momentum,
+                                    weight_decay=self.args.weight_decay)
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
-                                                    step_size=args.lr_decay_epochs,
-                                                    gamma=args.lr_decay_factor)
+                                                    step_size=self.args.lr_decay_epochs,
+                                                    gamma=self.args.lr_decay_factor)
 
         return {"optimizer": optimizer, "lr_scheduler": scheduler}
 
@@ -169,21 +169,27 @@ def main(args):
     current_time = datetime.now()
     formatted_time = current_time.strftime("%Y%m%d_%H%M%S")
     args.name = args.name + f"_{formatted_time}"
-    
-    if args.dataset == "cifar-10":
-        # Load CIFAR-10 dataset
 
-        transform = transforms.Compose([
+
+    # Define data preprocessing
+    if args.dataset in ["cifar-10", "cifar-100"]:
+        train_transform = transforms.Compose([
+            transforms.RandomCrop(size=32, padding=4),
+            transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
-            # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
         ])
-
-        train_dataset = CIFAR10(root=args.data_root, train=True, download=True, transform=transform)
-        test_dataset = CIFAR10(root=args.data_root, train=False, download=True, transform=transform)
+        test_transform = transforms.Compose([
+            transforms.ToTensor(),
+        ])
+    
+    # Load CIFAR-10 dataset
+    if args.dataset == "cifar-10":
+        train_dataset = CIFAR10(root=args.data_root, train=True, download=True, transform=train_transform)
+        test_dataset = CIFAR10(root=args.data_root, train=False, download=True, transform=test_transform)
 
     elif args.dataset == "cifar-100":
-        train_dataset = CIFAR100(root=args.data_root, train=True, download=True, transform=transform)
-        test_dataset = CIFAR100(root=args.data_root, train=False, download=True, transform=transform)
+        train_dataset = CIFAR100(root=args.data_root, train=True, download=True, transform=train_transform)
+        test_dataset = CIFAR100(root=args.data_root, train=False, download=True, transform=test_transform)
 
     if args.dataset in ["cifar-10", "cifar-100"]:
         clean_train_dataset, calibration_dataset, noise_eval_dataset = split_cifar(dataset=train_dataset, 
