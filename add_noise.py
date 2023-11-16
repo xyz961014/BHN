@@ -12,7 +12,7 @@ def symmetric(eta, labels, K):  # eta is proportion of noisy labels, K is number
         possible_labels = list(range(K))    # all possible labels, representing all K classes
         possible_labels.remove(int(shuffled_labels[i][0]))   # remove current label from list of possible new labels
         shuffled_labels[i][0] = random.choice(possible_labels)  # replace label with a new random one
-    noisy_labels = shuffled_labels[shuffled_indices]      # unshuffling the labels
+    noisy_labels = shuffled_labels[torch.argsort(shuffled_indices)]      # unshuffling the labels
     return noisy_labels
 
 def asymmetric(eta, labels, K):  # eta is proportion of noisy labels, K is number of classes
@@ -22,7 +22,7 @@ def asymmetric(eta, labels, K):  # eta is proportion of noisy labels, K is numbe
     max_noisy_index = math.floor(eta * n)  # number of labels to corrupt
     labels_to_corrupt = shuffled_labels[0:max_noisy_index, :]
     shuffled_labels[0:max_noisy_index,:] = (labels_to_corrupt + 1) % K  # shift labels by one forward
-    noisy_labels = shuffled_labels[shuffled_indices]  # unshuffling the labels
+    noisy_labels = shuffled_labels[torch.argsort(shuffled_indices)]  # unshuffling the labels
     return noisy_labels
 
 def instanceDependent(eta, features, labels, K):
@@ -33,11 +33,12 @@ def instanceDependent(eta, features, labels, K):
     w = torch.randn(d, K)   # weights for projection
     for i in range(n):
         p = features[i,:] @ w   # we will eventually sample the new label according to distribution in vector p
-                                # p has size (1xK)
-        p[0][labels[i]] = float('-inf')
+                                # mathematically, p has size (1xK), but is represented here with size 10,
+        p[labels[i]] = float('-inf')
         p = q_vector[i] * torch.softmax(p, 0)
-        p[0][labels[i]] = 1 - q_vector[i]
+        p[labels[i]] = 1 - q_vector[i]
         new_label = torch.multinomial(p, num_samples=1).item()  # sampling according to distribution given by p
         labels[i] = new_label
     return labels
+
 
