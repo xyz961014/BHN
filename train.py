@@ -19,9 +19,12 @@ import torch
 
 from omegaconf import OmegaConf
 
-
+import add_noise
 from resnet import get_resnet
 from data_loader import split_cifar, parse_ckpt_name, merge_clean_dataset
+from performance_metrics import fdr, recall, precision, f1
+
+import ipdb
 
 # Parsing CLI and config files
 def parse_args():
@@ -29,11 +32,12 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Lightning')
     parser.add_argument('--config', type=str,
                         default='config.yaml', help='config file')
-    args = parser.parse_args()
+    # args = parser.parse_args()
+    args, unknown = parser.parse_known_args()
 
     params = OmegaConf.load(
         Path(Path(__file__).parent.resolve() / 'configs' / args.config))
-    params.root_dir = Path(__file__).parent.resolve()
+    #params.root_dir = Path(__file__).parent.resolve()
 
     return params
 
@@ -161,6 +165,12 @@ def main(args):
                                                                                    train_ratio=args.train_ratio)
     ###############################################
     # TODO: Add noise to noise_eval_dataset
+    true_labels = torch.tensor(noise_eval_dataset.dataset.targets)[noise_eval_dataset.indices]
+    if args.noise_type == "symmetric":
+        noisy_labels = add_noise.symmetric(eta=args.noise_eta, 
+                                           labels=true_labels, 
+                                           K=len(noise_eval_dataset.dataset.classes))
+        pass
     noise_eval_dataset = noise_eval_dataset
     ###############################################
     
@@ -192,16 +202,18 @@ def main(args):
         if len(ckpt_files) > 0 and hparams_file.exists():
             ckpt_files.sort(key=lambda f: parse_ckpt_name(f.name), reverse=True)
             model = ModelLightning.load_from_checkpoint(ckpt_files[0], hparams_file=hparams_file)
+        else:
+            print("No ckpt found in {}.".format(args.load_path))
 
     if model is None:
-        model = ModelLightning(args) # use vars in order to save hparams safely in a yaml file
+        model = ModelLightning(args)
     
     if not args.skip_first_training:
-        # Train the model on clean training set
         logger = TensorBoardLogger("lightning_logs", 
                                    name=args.name, 
                                    version="clean")
         trainer = Trainer(logger=logger, max_epochs=args.num_epochs)
+        # Train the model on clean training set
         trainer.fit(model, clean_train_loader, calibration_loader)
     else:
         trainer = Trainer(logger=False)
@@ -218,19 +230,26 @@ def main(args):
 
     ###############################################
     # TODO: Compute noise detection metrics
+    fake_noisy_labels = torch.randint(0, 10, size=(len(noise_eval_dataset),))
+    fake_preds = torch.empty(len(noise_eval_dataset)).uniform_(0.5, 1).bernoulli()
+    fdr_score = fdr(true_labels, fake_noisy_labels, fake_preds)
+    recall_score = recall(true_labels, fake_noisy_labels, fake_preds)
+    f1_score = f1(true_labels, fake_noisy_labels, fake_preds)
+    print("=" * 20 + "Noise Detection Evaluation" + "=" * 20)
+    print("FDR: {:7.4f} | Recall: {:7.4f} | F1: {:7.4f}".format(fdr_score, recall_score, f1_score))
+    print("=" * 66)
     ###############################################
 
     # Train the model on all clean data
-    clean_prediction = torch.empty(len(noise_eval_dataset)).uniform_(0.5, 1).bernoulli() # a fake one
     all_train_dataset = merge_clean_dataset(clean_train_dataset, calibration_dataset, noise_eval_dataset,
-                                            clean_prediction=clean_prediction)
+                                            clean_prediction=fake_preds)
     all_train_loader = DataLoader(all_train_dataset, 
                                   batch_size=args.batch_size, 
                                   shuffle=True,
                                   num_workers=11)
 
     # reinitialize model
-    model = ModelLightning(vars(args)) 
+    model = ModelLightning(args) 
 
     logger = TensorBoardLogger("lightning_logs", 
                                name=args.name, 
@@ -244,4 +263,8 @@ def main(args):
 
 if __name__ == "__main__":
     args = parse_args()
+    cli_args = OmegaConf.from_cli()
+    args = OmegaConf.merge(args, cli_args)
+    # An example to use command line to specify arguments is
+    # python train.py --config <file> lr=0.01 name=new_test
     main(args)
