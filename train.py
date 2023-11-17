@@ -2,7 +2,6 @@ from pathlib import Path
 import argparse
 import numpy as np
 import json
-import ipdb
 import sys
 import os
 from datetime import datetime
@@ -18,72 +17,37 @@ from torch.utils.data import DataLoader, random_split
 import torch.nn.functional as F
 import torch
 
+from omegaconf import OmegaConf
+
+
 from resnet import get_resnet
 from data_loader import split_cifar, parse_ckpt_name, merge_clean_dataset
 
-
+# Parsing CLI and config files
 def parse_args():
-    parser = argparse.ArgumentParser()
 
-    parser.add_argument("--seed", type=int, default=42,
-                        help="random seed")
+    parser = argparse.ArgumentParser(description='Lightning')
+    parser.add_argument('--config', type=str,
+                        default='config.yaml', help='config file')
+    args = parser.parse_args()
 
-    parser.add_argument("--model", type=str,
-                        default="resnet34",
-                        choices= ["resnet18", "resnet34", "resnet50"],
-                        help="Network to train")
-    parser.add_argument("--dataset", type=str,
-                        default="cifar-10",
-                        choices= ["cifar-10", "cifar-100"],
-                        help="Dataset to train")
+    params = OmegaConf.load(
+        Path(Path(__file__).parent.resolve() / 'configs' / args.config))
+    params.root_dir = Path(__file__).parent.resolve()
 
-    parser.add_argument("--data_root", type=str, default="data",
-                        help="directory of the data")
-    parser.add_argument("--validation_ratio",type=float, default=0.1,
-                        help="ratio to split the training set to get the validation set")
-    parser.add_argument("--batch_size",type=int, default=128,
-                        help="batch size")
-    parser.add_argument("--eval_batch_size",type=int, default=32,
-                        help="test batch size")
-    parser.add_argument("--num_epochs",type=int, default=200,
-                        help="training epochs")
-    parser.add_argument("--lr",type=float, default=0.1,
-                        help="learning rate")
-    parser.add_argument("--momentum",type=float, default=0.9,
-                        help="momentum in SGD optimizer")
-    parser.add_argument("--weight_decay",type=float, default=5e-4,
-                        help="L2 regularization")
+    return params
 
-    # data split
-    parser.add_argument("--clean_ratio",type=float, default=0.4, # 0.4 * 50000 = 20000
-                        help="keep clean_ratio of the training data clean and add noise to the rest")
-    parser.add_argument("--train_ratio",type=float, default=0.5, # 0.5 * 20000 = 10000
-                        help="the ratio of training set in clean data, the rest is calibration set")
-
-    # lr_scheduler
-    parser.add_argument("--lr_decay_factor",type=float, default=0.1,
-                        help="factor of learning rate decay, gamma in StepLR")
-    parser.add_argument("--lr_decay_epochs",type=int, default=160,
-                        help="the period to decay learning rate")
-
-    # run name to save
-    parser.add_argument("--name", type=str, default="default",
-                        help="run name")
-
-    # load checkpoint
-    parser.add_argument("--skip_first_training", action="store_true",
-                        help="skip training on the clean set")
-    parser.add_argument("--load_path", type=str, default=None,
-                        help="run path to load checkpoint from")
-
-
-    return parser.parse_args()
+# One can add extra parameters here, that are not specified in the yaml file.
+# For instance : 
+# params.optimizer.learning_rate_fc = 0.01
+def additional_config_parameters():
+    pass 
 
 
 class ModelLightning(LightningModule):
     def __init__(self, args):
         super().__init__()
-        self.args = argparse.Namespace(**args)
+        self.args = args
         self.save_hyperparameters()
 
         self.model = get_resnet(model_name=self.args.model, dataset=self.args.dataset)
@@ -230,7 +194,7 @@ def main(args):
             model = ModelLightning.load_from_checkpoint(ckpt_files[0], hparams_file=hparams_file)
 
     if model is None:
-        model = ModelLightning(vars(args)) # use vars in order to save hparams safely in a yaml file
+        model = ModelLightning(args) # use vars in order to save hparams safely in a yaml file
     
     if not args.skip_first_training:
         # Train the model on clean training set
