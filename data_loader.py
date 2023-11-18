@@ -1,6 +1,7 @@
 import numpy as np
 import re
 import torch
+from torch.utils.data import Dataset
 from torch.utils.data.dataset import Subset
 import ipdb
 
@@ -39,3 +40,17 @@ def merge_clean_dataset(training_set, calibration_set, noise_eval_set, clean_pre
     all_clean_indices = torch.cat((training_indices, calibration_indices, new_clean_indices), dim=0)
 
     return Subset(training_set.dataset, all_clean_indices)
+
+
+class NoisyLabelDataset(Dataset):
+    def __init__(self, subset, noisy_labels):
+        self.subset = subset
+        self.noisy_labels = noisy_labels
+
+    def __getitem__(self, idx):
+        data, _ = self.subset[idx]
+        noisy_label = self.noisy_labels[idx]
+        return data, noisy_label
+
+    def __len__(self):
+        return len(self.subset)
