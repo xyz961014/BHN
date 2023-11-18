@@ -43,9 +43,10 @@ def instanceDependent(eta, features, labels, K): # features are (nxd)
     return new_labels
 
 
-a = torch.arange(10).view(-1,1)
-x = torch.randn(5,5)
-b = instanceDependent(0.6, x, a, 10)
-
-print(a)
-print(b)
+if __name__ == "__main__":
+    a = torch.arange(10).view(-1,1)
+    x = torch.randn(5,5)
+    b = instanceDependent(0.6, x, a, 10)
+    
+    print(a)
+    print(b)
