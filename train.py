@@ -37,14 +37,12 @@ def parse_args():
 
     params = OmegaConf.load(
         Path(Path(__file__).parent.resolve() / 'configs' / args.config))
-    #params.root_dir = Path(__file__).parent.resolve()
-
     return params
 
 # One can add extra parameters here, that are not specified in the yaml file.
 # For instance : 
 # params.optimizer.learning_rate_fc = 0.01
-def additional_config_parameters():
+def additional_config_parameters(params):
     pass 
 
 
