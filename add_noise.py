@@ -3,7 +3,7 @@ import math
 import random
 
 
-def symmetric(eta, labels, K):  # eta is proportion of noisy labels, K is number of classes
+def symmetric(eta, labels, K):  # eta is proportion of noisy labels, K is number of classes, labels is (nx1)
     n = labels.size(0)          # number of datapoints in the batch
     shuffled_indices = torch.randperm(n)
     shuffled_labels = labels[shuffled_indices]
@@ -25,7 +25,7 @@ def asymmetric(eta, labels, K):  # eta is proportion of noisy labels, K is numbe
     noisy_labels = shuffled_labels[torch.argsort(shuffled_indices)]  # unshuffling the labels
     return noisy_labels
 
-def instanceDependent(eta, features, labels, K):
+def instanceDependent(eta, features, labels, K): # features are (nxd)
     n = features.size(0)    # number of datapoints in the batch
     d = features.size(1)    # number of dimensions
     q_vector = torch.randn(n,1) * 0.1 + eta  # probabilities for each label to be corrupted, not yet truncated
@@ -43,3 +43,10 @@ def instanceDependent(eta, features, labels, K):
     return new_labels
 
 
+if __name__ == "__main__":
+    a = torch.arange(10).view(-1,1)
+    x = torch.randn(5,5)
+    b = instanceDependent(0.6, x, a, 10)
+    
+    print(a)
+    print(b)

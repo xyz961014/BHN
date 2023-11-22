@@ -4,6 +4,7 @@ import torch
 def fdr(true_labels, noisy_labels, preds):  # preds has same shape as labels, it's a boolean tensor saying
                                             # True when it thinks it's looking at a non-corrupted label and
                                             # False when it thinks it's looking at a corrupted label
+                                            # all tensors have size (nx1)
     true_preds = true_labels == noisy_labels
     true_positives = torch.sum((preds == True) & (true_preds == True)).item()
     false_positives = torch.sum((preds == True) & (true_preds == False)).item()

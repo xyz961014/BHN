@@ -21,7 +21,7 @@ from omegaconf import OmegaConf
 
 import add_noise
 from resnet import get_resnet
-from data_loader import split_cifar, parse_ckpt_name, merge_clean_dataset
+from data_loader import split_cifar, parse_ckpt_name, merge_clean_dataset, NoisyLabelDataset
 from performance_metrics import fdr, recall, precision, f1
 
 import ipdb
@@ -166,10 +166,18 @@ def main(args):
     true_labels = torch.tensor(noise_eval_dataset.dataset.targets)[noise_eval_dataset.indices]
     if args.noise_type == "symmetric":
         noisy_labels = add_noise.symmetric(eta=args.noise_eta, 
-                                           labels=true_labels, 
-                                           K=len(noise_eval_dataset.dataset.classes))
-        pass
-    noise_eval_dataset = noise_eval_dataset
+                                           labels=true_labels.unsqueeze(1), 
+                                           K=len(noise_eval_dataset.dataset.classes)).squeeze(1)
+    elif args.noise_type == "asymmetric":
+        noisy_labels = add_noise.asymmetric(eta=args.noise_eta, 
+                                            labels=true_labels.unsqueeze(1), 
+                                            K=len(noise_eval_dataset.dataset.classes)).squeeze(1)
+    elif args.noise_type == "instance":
+        noisy_labels = add_noise.instanceDependent(eta=args.noise_eta, 
+                                                   labels=true_labels.unsqueeze(1), 
+                                                   K=len(noise_eval_dataset.dataset.classes)).squeeze(1)
+
+    noise_eval_dataset = NoisyLabelDataset(noise_eval_dataset, noisy_labels)
     ###############################################
     
     # Create data loaders
