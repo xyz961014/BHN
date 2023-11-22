@@ -111,7 +111,7 @@ class ModelLightning(LightningModule):
             for batch in tqdm(calibration_loader, desc="Computing calibration scores"):
                 x, y = batch
                 x, y = x.to(self.device), y.to(self.device)
-                y_hat = self(x)
+                y_hat = self.forward(x)
                 batch_score = -F.cross_entropy(y_hat, y, reduction="none")
                 batch_accuracy = (y_hat.argmax(dim=1) == y).float()
                 scores.append(batch_score)
@@ -122,6 +122,23 @@ class ModelLightning(LightningModule):
             print("Calibration set accuracy: {:.4f}".format(self.calibration_accuracy))
 
         return self.calibration_scores
+
+    
+    def eval_pvalues(self, X, Y):
+        m = self.calibration_scores.shape[0]
+        self.eval()
+        if torch.cuda.is_available():
+            self.cuda()
+        with torch.no_grad():
+            X, Y = X.to(self.device), Y.to(self.device)
+            Y_hat = self.forward(X)
+            noisy_scores = -F.cross_entropy(Y_hat, Y, reduction="none")
+            # Trick to compute the pvalue. L = eval length
+            noisy_scores = noisy_scores.unsqueeze(0).T # [L] -> [1, L]
+            noisy_scores = noisy_scores.repeat(1, m) # [1, L] -> [m, L]
+            card = torch.sum(noisy_scores <= self.calibration_accuracy, dim=1)
+            pvalues = (card + 1) / (m + 1)
+        return pvalues
 
 
 def main(args):
@@ -177,7 +194,7 @@ def main(args):
                                                    labels=true_labels.unsqueeze(1), 
                                                    K=len(noise_eval_dataset.dataset.classes)).squeeze(1)
 
-    noise_eval_dataset = NoisyLabelDataset(noise_eval_dataset, noisy_labels)
+    # noise_eval_dataset = NoisyLabelDataset(noise_eval_dataset, noisy_labels)
     ###############################################
     
     # Create data loaders
@@ -233,6 +250,21 @@ def main(args):
     ###############################################
     # TODO: Inference on noise_eval_dataset
     ###############################################
+
+    # calibration_scores as model attribute, shape [M]
+    # noise_eval_dataset the dataset containing (X, Y~)
+
+    noisy_pvalues = model.eval_pvalues(noise_eval_dataset.dataset.data, noise_eval_dataset.dataset.targets)
+
+    sorted_noisy_pvalue, indices = torch.sort(noisy_pvalues)
+
+    k = 1
+    N = sorted_noisy_pvalue.shape[0]
+    while k <= N and sorted_noisy_pvalue[k-1] <= k * args.alpha / N:
+        k+=1
+
+    fake_noisy = torch.zeros((N))
+    fake_noisy[indices[:k]] = 1
 
     ###############################################
     # TODO: Compute noise detection metrics
