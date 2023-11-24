@@ -31,11 +31,11 @@ def parse_ckpt_name(filename):
     return -1, -1  # Return a default value for non-matching filenames
 
 def merge_clean_dataset(training_set, calibration_set, noise_eval_set, clean_prediction):
-    assert training_set.dataset == calibration_set.dataset == noise_eval_set.dataset
+    assert training_set.dataset == calibration_set.dataset == noise_eval_set.subset.dataset
 
     training_indices = training_set.indices
     calibration_indices = calibration_set.indices
-    new_clean_indices = noise_eval_set.indices[clean_prediction.bool()]
+    new_clean_indices = noise_eval_set.subset.indices[clean_prediction.bool()]
 
     all_clean_indices = torch.cat((training_indices, calibration_indices, new_clean_indices), dim=0)
 

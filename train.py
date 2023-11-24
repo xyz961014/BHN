@@ -131,7 +131,7 @@ class ModelLightning(LightningModule):
             self.cuda()
         with torch.no_grad():
             pvalues_list = []
-            for batch in tqdm(noise_eval_loader, desc="Computing calibration scores"):
+            for batch in tqdm(noise_eval_loader, desc="Computing p-values"):
                 x, y = batch
                 x, y = x.to(self.device), y.to(self.device) 
                 y_hat = self.forward(x)
@@ -268,16 +268,18 @@ def main(args):
     while k <= N and sorted_noisy_pvalue[k-1] <= k * args.alpha / N:
         k+=1
 
-    fake_noisy = torch.zeros((N))
-    fake_noisy[indices[:k]] = 1
+    preds = torch.ones_like(noisy_pvalues)
+    preds[indices[:k-1]] = 0
+    preds = preds.cpu()
+    ipdb.set_trace()
 
     ###############################################
     # TODO: Compute noise detection metrics
-    fake_noisy_labels = torch.randint(0, 10, size=(len(noise_eval_dataset),))
-    fake_preds = torch.empty(len(noise_eval_dataset)).uniform_(0.5, 1).bernoulli()
-    fdr_score = fdr(true_labels, fake_noisy_labels, fake_preds)
-    recall_score = recall(true_labels, fake_noisy_labels, fake_preds)
-    f1_score = f1(true_labels, fake_noisy_labels, fake_preds)
+    #fake_noisy_labels = torch.randint(0, 10, size=(len(noise_eval_dataset),))
+    #fake_preds = torch.empty(len(noise_eval_dataset)).uniform_(0.5, 1).bernoulli()
+    fdr_score = fdr(true_labels, noisy_labels, preds)
+    recall_score = recall(true_labels, noisy_labels, preds)
+    f1_score = f1(true_labels, noisy_labels, preds)
     print("=" * 20 + "Noise Detection Evaluation" + "=" * 20)
     print("FDR: {:7.4f} | Recall: {:7.4f} | F1: {:7.4f}".format(fdr_score, recall_score, f1_score))
     print("=" * 66)
@@ -285,7 +287,7 @@ def main(args):
 
     # Train the model on all clean data
     all_train_dataset = merge_clean_dataset(clean_train_dataset, calibration_dataset, noise_eval_dataset,
-                                            clean_prediction=fake_preds)
+                                            clean_prediction=preds)
     all_train_loader = DataLoader(all_train_dataset, 
                                   batch_size=args.batch_size, 
                                   shuffle=True,
