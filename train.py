@@ -124,21 +124,26 @@ class ModelLightning(LightningModule):
         return self.calibration_scores
 
     
-    def eval_pvalues(self, X, Y):
+    def eval_pvalues(self, noise_eval_loader):
         m = self.calibration_scores.shape[0]
         self.eval()
         if torch.cuda.is_available():
             self.cuda()
         with torch.no_grad():
-            X, Y = X.to(self.device), Y.to(self.device)
-            Y_hat = self.forward(X)
-            noisy_scores = -F.cross_entropy(Y_hat, Y, reduction="none")
-            # Trick to compute the pvalue. L = eval length
-            noisy_scores = noisy_scores.unsqueeze(0).T # [L] -> [1, L]
-            noisy_scores = noisy_scores.repeat(1, m) # [1, L] -> [m, L]
-            card = torch.sum(noisy_scores <= self.calibration_accuracy, dim=1)
-            pvalues = (card + 1) / (m + 1)
-        return pvalues
+            pvalues_list = []
+            for batch in tqdm(noise_eval_loader, desc="Computing calibration scores"):
+                x, y = batch
+                x, y = x.to(self.device), y.to(self.device) 
+                y_hat = self.forward(x)
+                noisy_scores = -F.cross_entropy(y_hat, y, reduction="none")
+                # Trick to compute the pvalue. L = eval length
+                noisy_scores = noisy_scores.unsqueeze(0).T # [L] -> [1, L]
+                noisy_scores = noisy_scores.repeat(1, m) # [1, L] -> [m, L]
+                card = torch.sum(noisy_scores <= self.calibration_accuracy, dim=1)
+                pvalues = (card + 1) / (m + 1)
+                pvalues_list.append(pvalues)
+            pvalues_tensor = torch.cat(pvalues_list, dim=0)
+        return pvalues_tensor
 
 
 def main(args):
@@ -194,7 +199,7 @@ def main(args):
                                                    labels=true_labels.unsqueeze(1), 
                                                    K=len(noise_eval_dataset.dataset.classes)).squeeze(1)
 
-    # noise_eval_dataset = NoisyLabelDataset(noise_eval_dataset, noisy_labels)
+    noise_eval_dataset = NoisyLabelDataset(noise_eval_dataset, noisy_labels)
     ###############################################
     
     # Create data loaders
@@ -254,7 +259,7 @@ def main(args):
     # calibration_scores as model attribute, shape [M]
     # noise_eval_dataset the dataset containing (X, Y~)
 
-    noisy_pvalues = model.eval_pvalues(noise_eval_dataset.dataset.data, noise_eval_dataset.dataset.targets)
+    noisy_pvalues = model.eval_pvalues(noise_eval_loader)
 
     sorted_noisy_pvalue, indices = torch.sort(noisy_pvalues)
 
