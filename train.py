@@ -139,7 +139,7 @@ class ModelLightning(LightningModule):
                 # Trick to compute the pvalue. L = eval length
                 noisy_scores = noisy_scores.unsqueeze(0).T # [L] -> [1, L]
                 noisy_scores = noisy_scores.repeat(1, m) # [1, L] -> [m, L]
-                card = torch.sum(noisy_scores <= self.calibration_accuracy, dim=1)
+                card = torch.sum(self.calibration_scores <= noisy_scores, dim=1)
                 pvalues = (card + 1) / (m + 1)
                 pvalues_list.append(pvalues)
             pvalues_tensor = torch.cat(pvalues_list, dim=0)
@@ -195,7 +195,10 @@ def main(args):
                                             labels=true_labels.unsqueeze(1), 
                                             K=len(noise_eval_dataset.dataset.classes)).squeeze(1)
     elif args.noise_type == "instance":
+        features = torch.tensor(noise_eval_dataset.dataset.data)[noise_eval_dataset.indices].float()
+        features = features.reshape(features.size(0), -1)
         noisy_labels = add_noise.instanceDependent(eta=args.noise_eta, 
+                                                   features=features,
                                                    labels=true_labels.unsqueeze(1), 
                                                    K=len(noise_eval_dataset.dataset.classes)).squeeze(1)
 
@@ -259,19 +262,23 @@ def main(args):
     # calibration_scores as model attribute, shape [M]
     # noise_eval_dataset the dataset containing (X, Y~)
 
-    noisy_pvalues = model.eval_pvalues(noise_eval_loader)
+    noisy_pvalues = model.eval_pvalues(noise_eval_loader).cpu()
 
     sorted_noisy_pvalue, indices = torch.sort(noisy_pvalues)
 
-    k = 1
     N = sorted_noisy_pvalue.shape[0]
-    while k <= N and sorted_noisy_pvalue[k-1] <= k * args.alpha / N:
-        k+=1
+    bh_threshold = (torch.arange(N) + 1) * args.alpha / N
+    bh_indice = torch.nonzero((sorted_noisy_pvalue <= bh_threshold))
+    if bh_indice.numel() > 0:
+        k = bh_indice.max()
+    else:
+        k = 0
+
+    #while k <= N and sorted_noisy_pvalue[k-1] <= k * args.alpha / N:
+    #    k+=1
 
     preds = torch.ones_like(noisy_pvalues)
-    preds[indices[:k-1]] = 0
-    preds = preds.cpu()
-    ipdb.set_trace()
+    preds[indices[:k]] = 0
 
     ###############################################
     # TODO: Compute noise detection metrics
