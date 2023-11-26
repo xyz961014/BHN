@@ -42,6 +42,7 @@ def merge_clean_dataset(training_set, calibration_set, noise_eval_set, clean_pre
     return Subset(training_set.dataset, all_clean_indices)
 
 
+
 class NoisyLabelDataset(Dataset):
     def __init__(self, subset, noisy_labels):
         self.subset = subset
@@ -54,3 +55,7 @@ class NoisyLabelDataset(Dataset):
 
     def __len__(self):
         return len(self.subset)
+
+    def get_clean_dataset(self, clean_prediction):
+        clean_indices = self.subset.indices[clean_prediction.bool()]
+        return Subset(self.subset.dataset, clean_indices)

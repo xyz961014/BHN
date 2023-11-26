@@ -21,7 +21,7 @@ from omegaconf import OmegaConf
 
 import add_noise
 from resnet import get_resnet
-from data_loader import split_cifar, parse_ckpt_name, merge_clean_dataset, NoisyLabelDataset
+from data_loader import split_cifar, parse_ckpt_name, NoisyLabelDataset
 from performance_metrics import fdr, recall, precision, f1
 
 import ipdb
@@ -279,6 +279,7 @@ def main(args):
 
     preds = torch.ones_like(noisy_pvalues)
     preds[indices[:k]] = 0
+    preds = preds.bool()
 
     ###############################################
     # TODO: Compute noise detection metrics
@@ -292,25 +293,25 @@ def main(args):
     print("=" * 66)
     ###############################################
 
-    # Train the model on all clean data
-    all_train_dataset = merge_clean_dataset(clean_train_dataset, calibration_dataset, noise_eval_dataset,
-                                            clean_prediction=preds)
-    all_train_loader = DataLoader(all_train_dataset, 
-                                  batch_size=args.batch_size, 
-                                  shuffle=True,
-                                  num_workers=11)
+    if args.train_final:
+        # Train the model on detected clean data
+        detected_clean_dataset = noise_eval_dataset.get_clean_dataset(clean_prediction=preds)
+        detected_clean_loader = DataLoader(detected_clean_dataset, 
+                                      batch_size=args.batch_size, 
+                                      shuffle=True,
+                                      num_workers=11)
 
-    # reinitialize model
-    model = ModelLightning(args) 
+        # reinitialize model
+        model = ModelLightning(args) 
 
-    logger = TensorBoardLogger("lightning_logs", 
-                               name=args.name, 
-                               version="all")
-    trainer = Trainer(logger=logger, max_epochs=args.num_epochs)
-    trainer.fit(model, all_train_loader)
+        logger = TensorBoardLogger("lightning_logs", 
+                                   name=args.name, 
+                                   version="detected_clean")
+        trainer = Trainer(logger=logger, max_epochs=args.num_epochs)
+        trainer.fit(model, detected_clean_loader, calibration_loader)
 
-    # Test the model 
-    trainer.test(model, test_loader)
+        # Test the model 
+        trainer.test(model, test_loader)
 
 
 if __name__ == "__main__":
