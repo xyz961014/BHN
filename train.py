@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from lightning import LightningModule
 from lightning.pytorch import Trainer
-from lightning.pytorch.loggers import TensorBoardLogger
+from lightning.pytorch.loggers import TensorBoardLogger, WandbLogger
 import torchvision.models as models
 import torchvision.transforms as transforms
 from torchvision.datasets import CIFAR10, CIFAR100
@@ -240,9 +240,19 @@ def main(args):
         model = ModelLightning(args)
     
     if not args.skip_first_training:
-        logger = TensorBoardLogger("lightning_logs", 
+        if args.logger == 'wandb':
+            logger = WandbLogger(
+                project='BHN',
+                name=args.name,
+                config=OmegaConf.to_container(args),
+            )
+        elif args.logger == 'tensorboard':
+            logger = TensorBoardLogger("lightning_logs", 
                                    name=args.name, 
-                                   version="clean")
+                                   version="clean"
+                                   )
+        else:
+            logger = False    
         trainer = Trainer(logger=logger, max_epochs=args.num_epochs)
         # Train the model on clean training set
         trainer.fit(model, clean_train_loader, calibration_loader)

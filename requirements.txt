@@ -2,3 +2,4 @@ torch
 torchvision
 pytorch-lightning
 omegaconf
+wandb

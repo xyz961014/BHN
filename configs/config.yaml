@@ -30,7 +30,8 @@ lr_decay_factor: 0.1 # Factor of learning rate decay, gamma in StepLR
 lr_decay_epochs: 160 # The period to decay learning rate
 
 # run name to save
-name: default # Run name
+name: run  # Run name
+logger: wandb # Tensorboard or Wandb
 
 # load checkpoint
 skip_first_training: false # Skip training on the clean set
