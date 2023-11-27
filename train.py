@@ -243,7 +243,9 @@ def main(args):
         if args.logger == 'wandb':
             logger = WandbLogger(
                 project='BHN',
+                save_dir="lightning_logs",
                 name=args.name,
+                prefix="clean",
                 config=OmegaConf.to_container(args),
             )
         elif args.logger == 'tensorboard':
@@ -314,9 +316,21 @@ def main(args):
         # reinitialize model
         model = ModelLightning(args) 
 
-        logger = TensorBoardLogger("lightning_logs", 
-                                   name=args.name, 
-                                   version="detected_clean")
+        if args.logger == 'wandb':
+            logger = WandbLogger(
+                project='BHN',
+                save_dir="lightning_logs",
+                name=args.name,
+                prefix="detected_clean",
+                config=OmegaConf.to_container(args),
+            )
+        elif args.logger == 'tensorboard':
+            logger = TensorBoardLogger("lightning_logs", 
+                                       name=args.name, 
+                                       version="detected_clean"
+                                       )
+        else:
+            logger = False
         trainer = Trainer(logger=logger, max_epochs=args.num_epochs)
         trainer.fit(model, detected_clean_loader, calibration_loader)
 
