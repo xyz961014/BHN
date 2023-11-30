@@ -21,7 +21,7 @@ from omegaconf import OmegaConf
 
 import add_noise
 from resnet import get_resnet
-from data_loader import split_cifar, parse_ckpt_name, NoisyLabelDataset
+from data_loader import split_cifar, parse_ckpt_name, NoisyLabelDataset, CleanClothing1M, NoisyClothing1M
 from performance_metrics import fdr, recall, precision, f1
 
 import ipdb
@@ -169,7 +169,17 @@ def main(args):
         test_transform = transforms.Compose([
             transforms.ToTensor(),
         ])
-    
+    elif args.dataset == "clothing1M":
+        train_transform = transforms.Compose([
+            transforms.Resize(256),  # Resize the image to 256 x 256
+            transforms.CenterCrop(224),  # Crop the middle 224 x 224
+            transforms.ToTensor(),  # Convert PIL image to tensor
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # Normalize with ImageNet stats
+        ])
+        test_transform = transforms.Compose([
+            transforms.ToTensor(),
+        ])
+            
     # Load CIFAR-10 dataset
     if args.dataset == "cifar-10":
         train_dataset = CIFAR10(root=args.data_root, train=True, download=True, transform=train_transform)
@@ -178,6 +188,20 @@ def main(args):
     elif args.dataset == "cifar-100":
         train_dataset = CIFAR100(root=args.data_root, train=True, download=True, transform=train_transform)
         test_dataset = CIFAR100(root=args.data_root, train=False, download=True, transform=test_transform)
+
+    elif args.dataset == "clothing1M":
+        clean_train_dataset = CleanClothing1M(
+            subset_list_file='clean_train_key_list.txt',
+            annotation_file='clean_label_kv.txt',
+            transform=train_transform)
+        calibration_dataset = CleanClothing1M(
+            subset_list_file='clean_val_key_list.txt',
+            annotation_file='clean_label_kv.txt',
+            transform=test_transform)
+        noise_eval_dataset = NoisyClothing1M(
+            annotation_file='noisy_label_kv.txt',
+            transform=test_transform
+        )
 
     if args.dataset in ["cifar-10", "cifar-100"]:
         clean_train_dataset, calibration_dataset, noise_eval_dataset = split_cifar(dataset=train_dataset, 

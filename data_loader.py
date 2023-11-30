@@ -3,6 +3,9 @@ import re
 import torch
 from torch.utils.data import Dataset
 from torch.utils.data.dataset import Subset
+import pandas as pd
+from torchvision.io import read_image
+from pathlib import Path
 import ipdb
 
 
@@ -42,7 +45,6 @@ def merge_clean_dataset(training_set, calibration_set, noise_eval_set, clean_pre
     return Subset(training_set.dataset, all_clean_indices)
 
 
-
 class NoisyLabelDataset(Dataset):
     def __init__(self, subset, noisy_labels):
         self.subset = subset
@@ -59,3 +61,59 @@ class NoisyLabelDataset(Dataset):
     def get_clean_dataset(self, clean_prediction):
         clean_indices = self.subset.indices[clean_prediction.bool()]
         return Subset(self.subset.dataset, clean_indices)
+
+
+# For Clothing1M, clean part is already divided into training, validation and test
+# We precise the subset by giving the clean_X_list.txt file listing the imgs of the subset
+class CleanClothing1M(Dataset):
+    def __init__(self, subset_list_file, annotation_file, dataset_dir='clothing1M', transform=None, target_transform=None):
+        # First, extract the subset from annotation file
+        data_dir = Path(dataset_dir)
+        annotation_df = pd.read_csv(data_dir / annotation_file, delimiter=' ', header=None)
+        subset_files = pd.read_csv(data_dir / subset_list_file, delimiter=' ', header=None)
+        subset = list()
+        for _, row in subset_files.iterrows():
+            query = annotation_df.loc[annotation_df[0] == row[0]]
+            subset.append({'file': query.iloc[0, 0], 'label': query.iloc[0, 1]})
+        self.img_labels = pd.DataFrame(subset)
+        # Other attributs
+        self.img_dir = data_dir
+        self.transform = transform
+        self.target_transform = target_transform
+    
+    def __getitem__(self, idx):
+        img_path = self.img_dir / self.img_labels.iloc[idx, 0]
+        image = read_image(str(img_path))
+        label = self.img_labels.iloc[idx, 1]
+        if self.transform:
+            image = self.transform(image)
+        if self.target_transform:
+            label = self.target_transform(label)
+        return image, label
+
+    def __len__(self):
+        return len(self.img_labels)
+
+
+class NoisyClothing1M(Dataset):
+    def __init__(self, annotation_file, dataset_dir='clothing1M', transform=None, target_transform=None):
+        # First, extract the subset from annotation file
+        data_dir = Path(dataset_dir)
+        self.img_labels = pd.read_csv(data_dir / annotation_file, delimiter=' ', header=None)
+        # Other attributs
+        self.img_dir = data_dir
+        self.transform = transform
+        self.target_transform = target_transform
+    
+    def __getitem__(self, idx):
+        img_path = self.img_dir / self.img_labels.iloc[idx, 0]
+        image = read_image(str(img_path))
+        label = self.img_labels.iloc[idx, 1]
+        if self.transform:
+            image = self.transform(image)
+        if self.target_transform:
+            label = self.target_transform(label)
+        return image, label
+
+    def __len__(self):
+        return len(self.img_labels)
