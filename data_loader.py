@@ -90,7 +90,7 @@ class CleanClothing1M(Dataset):
     
     def __getitem__(self, idx):
         img_path = self.img_dir / self.img_labels.iloc[idx, 0]
-        image = read_image(str(img_path))
+        image = read_image(str(img_path)).to(torch.float32)
         label = self.img_labels.iloc[idx, 1]
         if self.transform:
             image = self.transform(image)
@@ -114,7 +114,7 @@ class NoisyClothing1M(Dataset):
     
     def __getitem__(self, idx):
         img_path = self.img_dir / self.img_labels.iloc[idx, 0]
-        image = read_image(str(img_path))
+        image = read_image(str(img_path)).to(torch.float32)
         label = self.img_labels.iloc[idx, 1]
         if self.transform:
             image = self.transform(image)
