@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Create a directory to store the output files
-output_dir="experiment_output"
-mkdir -p ${noise_exeriments_output_dir}
+noise_experiments_output_dir="experiment_output"
+mkdir -p ${noise_experiments_output_dir}
 
 # Set the range of noise rates you want to test
 for dataset in cifar-10 cifar-100
@@ -14,7 +14,7 @@ do
         echo "Running experiment with noise_eta=${noise_eta}"
 
         # Define the output file name based on the noise rate
-        output_file="${noise_exeriments_output_dir}/output_${dataset/noise_type/noise_eta}.txt"
+        output_file="${noise_experiments_output_dir}/output_${dataset}/${noise_type}/${noise_eta}.txt"
 
         # Run your Python script with the current noise_eta and redirect stdout to the output file
         python train.py dataset=${dataset} noise_type=${noise_type} noise_eta=${noise_eta} > ${output_file} 2>&1
