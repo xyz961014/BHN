@@ -13,7 +13,7 @@ from lightning.pytorch.loggers import TensorBoardLogger, WandbLogger
 import torchvision.models as models
 import torchvision.transforms as transforms
 from torchvision.datasets import CIFAR10, CIFAR100
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader, random_split, WeightedRandomSampler
 import torch.nn.functional as F
 import torch
 
@@ -193,17 +193,21 @@ def main(args):
         clean_train_dataset = CleanClothing1M(
             subset_list_file='clean_train_key_list.txt',
             annotation_file='clean_label_kv.txt',
+            data_dir=args.data_root,
             transform=train_transform)
         calibration_dataset = CleanClothing1M(
             subset_list_file='clean_val_key_list.txt',
             annotation_file='clean_label_kv.txt',
+            data_dir=args.data_root,
             transform=test_transform)
         test_dataset = CleanClothing1M(
             subset_list_file='clean_test_key_list.txt',
             annotation_file='clean_label_kv.txt',
+            data_dir=args.data_root,
             transform=test_transform)
         noise_eval_dataset = NoisyClothing1M(
             annotation_file='noisy_label_kv.txt',
+            data_dir=args.data_root,
             transform=test_transform
         )
 
@@ -211,27 +215,26 @@ def main(args):
         clean_train_dataset, calibration_dataset, noise_eval_dataset = split_cifar(dataset=train_dataset, 
                                                                                    clean_ratio=args.clean_ratio,
                                                                                    train_ratio=args.train_ratio)
-    ###############################################
-    # TODO: Add noise to noise_eval_dataset
-    true_labels = torch.tensor(noise_eval_dataset.dataset.targets)[noise_eval_dataset.indices]
-    if args.noise_type == "symmetric":
-        noisy_labels = add_noise.symmetric(eta=args.noise_eta, 
-                                           labels=true_labels.unsqueeze(1), 
-                                           K=len(noise_eval_dataset.dataset.classes)).squeeze(1)
-    elif args.noise_type == "asymmetric":
-        noisy_labels = add_noise.asymmetric(eta=args.noise_eta, 
+        # Adding noise
+        true_labels = torch.tensor(noise_eval_dataset.dataset.targets)[noise_eval_dataset.indices]
+        if args.noise_type == "symmetric":
+            noisy_labels = add_noise.symmetric(eta=args.noise_eta, 
                                             labels=true_labels.unsqueeze(1), 
                                             K=len(noise_eval_dataset.dataset.classes)).squeeze(1)
-    elif args.noise_type == "instance":
-        features = torch.tensor(noise_eval_dataset.dataset.data)[noise_eval_dataset.indices].float()
-        features = features.reshape(features.size(0), -1)
-        noisy_labels = add_noise.instanceDependent(eta=args.noise_eta, 
-                                                   features=features,
-                                                   labels=true_labels.unsqueeze(1), 
-                                                   K=len(noise_eval_dataset.dataset.classes)).squeeze(1)
+        elif args.noise_type == "asymmetric":
+            noisy_labels = add_noise.asymmetric(eta=args.noise_eta, 
+                                                labels=true_labels.unsqueeze(1), 
+                                                K=len(noise_eval_dataset.dataset.classes)).squeeze(1)
+        elif args.noise_type == "instance":
+            features = torch.tensor(noise_eval_dataset.dataset.data)[noise_eval_dataset.indices].float()
+            features = features.reshape(features.size(0), -1)
+            noisy_labels = add_noise.instanceDependent(eta=args.noise_eta, 
+                                                    features=features,
+                                                    labels=true_labels.unsqueeze(1), 
+                                                    K=len(noise_eval_dataset.dataset.classes)).squeeze(1)
 
-    noise_eval_dataset = NoisyLabelDataset(noise_eval_dataset, noisy_labels)
-    ###############################################
+        noise_eval_dataset = NoisyLabelDataset(noise_eval_dataset, noisy_labels)
+
     
     # Create data loaders
     clean_train_loader = DataLoader(clean_train_dataset, 
@@ -327,25 +330,34 @@ def main(args):
     preds[indices[:k]] = 0
     preds = preds.bool()
 
-    ###############################################
-    # TODO: Compute noise detection metrics
-    #fake_noisy_labels = torch.randint(0, 10, size=(len(noise_eval_dataset),))
-    #fake_preds = torch.empty(len(noise_eval_dataset)).uniform_(0.5, 1).bernoulli()
-    fdr_score = fdr(true_labels, noisy_labels, preds)
-    recall_score = recall(true_labels, noisy_labels, preds)
-    f1_score = f1(true_labels, noisy_labels, preds)
-    print("=" * 20 + "Noise Detection Evaluation" + "=" * 20)
-    print("FDR: {:7.4f} | Recall: {:7.4f} | F1: {:7.4f}".format(fdr_score, recall_score, f1_score))
-    print("=" * 66)
-    ###############################################
+    # Compute scores if we know true labels (not the case for clothing1M)
+    if args.dataset in ["cifar-10", "cifar-100"]:
+        fdr_score = fdr(true_labels, noisy_labels, preds)
+        recall_score = recall(true_labels, noisy_labels, preds)
+        f1_score = f1(true_labels, noisy_labels, preds)
+        print("=" * 20 + "Noise Detection Evaluation" + "=" * 20)
+        print("FDR: {:7.4f} | Recall: {:7.4f} | F1: {:7.4f}".format(fdr_score, recall_score, f1_score))
+        print("=" * 66)
 
     if args.train_final:
         # Train the model on detected clean data
         detected_clean_dataset = noise_eval_dataset.get_clean_dataset(clean_prediction=preds)
-        detected_clean_loader = DataLoader(detected_clean_dataset, 
-                                      batch_size=args.batch_size, 
-                                      shuffle=True,
-                                      num_workers=11)
+
+        sampler = None
+        if args.dataset == 'clothing1M':
+            targets = torch.tensor(detected_clean_dataset.dataset.img_labels.loc[
+                                                            detected_clean_dataset.indices
+                                                            ][1].values)
+            class_count = torch.bincount(targets)
+            class_weights = 1. / class_count
+            sample_weights = class_weights[targets]
+            sampler = WeightedRandomSampler(sample_weights, args.mini_batch_retrain_size*args.batch_size)
+
+        detected_clean_loader = DataLoader(detected_clean_dataset,
+                                        sampler=sampler,
+                                        batch_size=args.batch_size, 
+                                        shuffle=True,
+                                        num_workers=11)
 
         # reinitialize model
         model = ModelLightning(args) 
@@ -366,6 +378,7 @@ def main(args):
                                        )
         else:
             logger = False
+
         trainer = Trainer(logger=logger, max_epochs=args.num_epochs)
         trainer.fit(model, detected_clean_loader, calibration_loader)
 

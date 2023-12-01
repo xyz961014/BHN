@@ -117,3 +117,7 @@ class NoisyClothing1M(Dataset):
 
     def __len__(self):
         return len(self.img_labels)
+
+    def get_clean_dataset(self, clean_prediction):
+        clean_indices = torch.tensor(self.img_labels.loc[clean_prediction.bool().tolist()].index)
+        return Subset(self, clean_indices)
