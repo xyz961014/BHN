@@ -193,21 +193,21 @@ def main(args):
         clean_train_dataset = CleanClothing1M(
             subset_list_file='clean_train_key_list.txt',
             annotation_file='clean_label_kv.txt',
-            data_dir=args.data_root,
+            dataset_dir=args.data_root,
             transform=train_transform)
         calibration_dataset = CleanClothing1M(
             subset_list_file='clean_val_key_list.txt',
             annotation_file='clean_label_kv.txt',
-            data_dir=args.data_root,
+            dataset_dir=args.data_root,
             transform=test_transform)
         test_dataset = CleanClothing1M(
             subset_list_file='clean_test_key_list.txt',
             annotation_file='clean_label_kv.txt',
-            data_dir=args.data_root,
+            dataset_dir=args.data_root,
             transform=test_transform)
         noise_eval_dataset = NoisyClothing1M(
             annotation_file='noisy_label_kv.txt',
-            data_dir=args.data_root,
+            dataset_dir=args.data_root,
             transform=test_transform
         )
 
