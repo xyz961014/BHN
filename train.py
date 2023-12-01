@@ -198,6 +198,10 @@ def main(args):
             subset_list_file='clean_val_key_list.txt',
             annotation_file='clean_label_kv.txt',
             transform=test_transform)
+        test_dataset = CleanClothing1M(
+            subset_list_file='clean_test_key_list.txt',
+            annotation_file='clean_label_kv.txt',
+            transform=test_transform)
         noise_eval_dataset = NoisyClothing1M(
             annotation_file='noisy_label_kv.txt',
             transform=test_transform
@@ -257,6 +261,11 @@ def main(args):
         if len(ckpt_files) > 0 and hparams_file.exists():
             ckpt_files.sort(key=lambda f: parse_ckpt_name(f.name), reverse=True)
             model = ModelLightning.load_from_checkpoint(ckpt_files[0], hparams_file=hparams_file)
+        elif len(ckpt_files) > 0:
+            try:
+                model = ModelLightning.load_from_checkpoint(ckpt_files[0])
+            except Exception as e:
+                print("Failed to load the model, {}.".format(e))
         else:
             print("No ckpt found in {}.".format(args.load_path))
 
@@ -266,17 +275,18 @@ def main(args):
     if not args.skip_first_training:
         if args.logger == 'wandb':
             logger = WandbLogger(
-                project='BHN',
-                save_dir="lightning_logs",
+                project='lightning_logs',
+                save_dir=".",
                 name=args.name,
                 prefix="clean",
+                version=f"{args.name}_clean",
                 config=OmegaConf.to_container(args),
             )
         elif args.logger == 'tensorboard':
             logger = TensorBoardLogger("lightning_logs", 
-                                   name=args.name, 
-                                   version="clean"
-                                   )
+                                       name=args.name, 
+                                       version="clean"
+                                       )
         else:
             logger = False    
         trainer = Trainer(logger=logger, max_epochs=args.num_epochs)
@@ -342,10 +352,11 @@ def main(args):
 
         if args.logger == 'wandb':
             logger = WandbLogger(
-                project='BHN',
-                save_dir="lightning_logs",
+                project='lightning_logs',
+                save_dir=".",
                 name=args.name,
                 prefix="detected_clean",
+                version=f"{args.name}_detected_clean",
                 config=OmegaConf.to_container(args),
             )
         elif args.logger == 'tensorboard':
