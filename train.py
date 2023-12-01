@@ -250,16 +250,16 @@ def main(args):
     clean_train_loader = DataLoader(clean_train_dataset, 
                                     batch_size=args.batch_size, 
                                     shuffle=True,
-                                    num_workers=11)
+                                    num_workers=4)
     calibration_loader = DataLoader(calibration_dataset, 
                                     batch_size=args.eval_batch_size,
-                                    num_workers=11)
+                                    num_workers=4)
     noise_eval_loader = DataLoader(noise_eval_dataset,
                                    batch_size=args.eval_batch_size,
-                                   num_workers=11)
+                                   num_workers=4)
     test_loader = DataLoader(test_dataset, 
                              batch_size=args.eval_batch_size,
-                             num_workers=11)
+                             num_workers=4)
 
 
     # Instantiate the Lightning module
@@ -333,9 +333,6 @@ def main(args):
     else:
         k = 0
 
-    #while k <= N and sorted_noisy_pvalue[k-1] <= k * args.alpha / N:
-    #    k+=1
-
     preds = torch.ones_like(noisy_pvalues)
     preds[indices[:k]] = 0
     preds = preds.bool()
@@ -365,10 +362,10 @@ def main(args):
             detected_clean_dataset = noise_eval_dataset.get_clean_dataset(clean_prediction=preds)
 
         detected_clean_loader = DataLoader(detected_clean_dataset,
-                                        sampler=sampler,
-                                        batch_size=args.batch_size, 
-                                        shuffle=True,
-                                        num_workers=11)
+                                           sampler=sampler,
+                                           batch_size=args.batch_size, 
+                                           shuffle=sampler is None,
+                                           num_workers=4)
 
         # reinitialize model
         model = ModelLightning(args) 

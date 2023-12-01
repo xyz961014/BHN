@@ -114,6 +114,7 @@ class NoisyClothing1M(Dataset):
         self.target_transform = target_transform
     
     def __getitem__(self, idx):
+        idx = idx.item()
         img_path = self.img_dir / self.img_labels.iloc[idx, 0]
         image = Image.open(str(img_path))
         label = self.img_labels.iloc[idx, 1]
