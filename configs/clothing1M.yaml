@@ -3,7 +3,7 @@ seed: 42 # random seed
 model: resnet50 # Should be in ["resnet18", "resnet34", "resnet50"]
 
 dataset: clothing1M # Should be in ["cifar-10", "cifar-100", "clothing1M"]
-data_root: data/clothing1M # Directory of the data
+data_root: /data/clothing1M # Directory of the data
 #validation_ration: 0.1 # Ratio to split the training set to get the validation set
 
 batch_size: 32
@@ -37,5 +37,5 @@ logger: wandb # Tensorboard or Wandb
 
 # load checkpoint
 skip_first_training: false # Skip training on the clean set
-train_final: false # Train on all clean data
+train_final: true # Train on all clean data
 load_path: null # Run path to load checkpoint from

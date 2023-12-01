@@ -173,11 +173,16 @@ def main(args):
         train_transform = transforms.Compose([
             transforms.Resize(256),  # Resize the image to 256 x 256
             transforms.CenterCrop(224),  # Crop the middle 224 x 224
+            transforms.RandomCrop(size=32, padding=4),
+            transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),  # Convert PIL image to tensor
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # Normalize with ImageNet stats
         ])
         test_transform = transforms.Compose([
+            transforms.Resize(256),  # Resize the image to 256 x 256
+            transforms.CenterCrop(224),  # Crop the middle 224 x 224
             transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # Normalize with ImageNet stats
         ])
             
     # Load CIFAR-10 dataset
@@ -209,6 +214,11 @@ def main(args):
             annotation_file='noisy_label_kv.txt',
             dataset_dir=args.data_root,
             transform=test_transform
+        )
+        noise_dataset = NoisyClothing1M(
+            annotation_file='noisy_label_kv.txt',
+            dataset_dir=args.data_root,
+            transform=train_transform
         )
 
     if args.dataset in ["cifar-10", "cifar-100"]:
@@ -341,10 +351,9 @@ def main(args):
 
     if args.train_final:
         # Train the model on detected clean data
-        detected_clean_dataset = noise_eval_dataset.get_clean_dataset(clean_prediction=preds)
-
         sampler = None
         if args.dataset == 'clothing1M':
+            detected_clean_dataset = noise_dataset.get_clean_dataset(clean_prediction=preds)
             targets = torch.tensor(detected_clean_dataset.dataset.img_labels.loc[
                                                             detected_clean_dataset.indices
                                                             ][1].values)
@@ -352,6 +361,8 @@ def main(args):
             class_weights = 1. / class_count
             sample_weights = class_weights[targets]
             sampler = WeightedRandomSampler(sample_weights, args.mini_batch_retrain_size*args.batch_size)
+        else:
+            detected_clean_dataset = noise_eval_dataset.get_clean_dataset(clean_prediction=preds)
 
         detected_clean_loader = DataLoader(detected_clean_dataset,
                                         sampler=sampler,
