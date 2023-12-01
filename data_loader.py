@@ -5,6 +5,7 @@ from torch.utils.data import Dataset
 from torch.utils.data.dataset import Subset
 import pandas as pd
 from torchvision.io import read_image
+from tqdm import tqdm
 from pathlib import Path
 import ipdb
 
@@ -72,9 +73,15 @@ class CleanClothing1M(Dataset):
         annotation_df = pd.read_csv(data_dir / annotation_file, delimiter=' ', header=None)
         subset_files = pd.read_csv(data_dir / subset_list_file, delimiter=' ', header=None)
         subset = list()
-        for _, row in subset_files.iterrows():
-            query = annotation_df.loc[annotation_df[0] == row[0]]
-            subset.append({'file': query.iloc[0, 0], 'label': query.iloc[0, 1]})
+
+        label_dict = {}
+        for _, row in tqdm(annotation_df.iterrows(), total=len(annotation_df)):
+            label_dict[row[0]] = row[1]
+        for _, row in tqdm(subset_files.iterrows(), total=len(subset_files)):
+            #query = annotation_df.loc[annotation_df[0] == row[0]]
+            file_name = row[0]
+            file_label = label_dict[file_name]
+            subset.append({'file': file_name, 'label': file_label})
         self.img_labels = pd.DataFrame(subset)
         # Other attributs
         self.img_dir = data_dir

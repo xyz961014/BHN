@@ -20,6 +20,8 @@ def get_resnet(model_name, dataset="cifar-10"):
         num_classes = 10
     elif dataset == "cifar-100":
         num_classes = 100
+    elif dataset == "clothing1M":
+        num_classes = 14
     else:
         raise ValueError("dataset not supported")
 
