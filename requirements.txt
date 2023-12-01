@@ -1,5 +1,7 @@
 torch
 torchvision
-pytorch-lightning
+lightning
 omegaconf
 wandb
+pandas
+ipdb

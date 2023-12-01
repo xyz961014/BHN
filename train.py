@@ -173,7 +173,7 @@ def main(args):
         train_transform = transforms.Compose([
             transforms.Resize(256),  # Resize the image to 256 x 256
             transforms.CenterCrop(224),  # Crop the middle 224 x 224
-            transforms.RandomCrop(size=32, padding=4),
+            transforms.RandomCrop(size=224, padding=32),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # Normalize with ImageNet stats
@@ -187,7 +187,7 @@ def main(args):
             
     # Load CIFAR-10 dataset
     if args.dataset == "cifar-10":
-        train_dataset = CIFAR10(root=args.data_root, train=True, download=True, transform=train_transform)
+        rain_dataset = CIFAR10(root=args.data_root, train=True, download=True, transform=train_transform)
         test_dataset = CIFAR10(root=args.data_root, train=False, download=True, transform=test_transform)
 
     elif args.dataset == "cifar-100":
