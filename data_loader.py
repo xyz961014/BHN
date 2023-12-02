@@ -5,6 +5,7 @@ from torch.utils.data import Dataset
 from torch.utils.data.dataset import Subset
 import pandas as pd
 from torchvision.io import read_image
+import torchvision.transforms as transforms
 from tqdm import tqdm
 from pathlib import Path
 import ipdb
@@ -108,6 +109,15 @@ class NoisyClothing1M(Dataset):
         # First, extract the subset from annotation file
         data_dir = Path(dataset_dir)
         self.img_labels = pd.read_csv(data_dir / annotation_file, delimiter=' ', header=None)
+        corrupted_files = [
+            "images/6/21/4053357363,404348621.jpg",
+                ]
+        index_to_drop = []
+        for ind, row in tqdm(self.img_labels.iterrows(), total=len(self.img_labels)):
+            if row[0] in corrupted_files:
+                index_to_drop.append(ind)
+        self.img_labels.drop(index_to_drop, inplace=True)
+        self.img_labels.reset_index(drop=True, inplace=True)
         # Other attributs
         self.img_dir = data_dir
         self.transform = transform

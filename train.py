@@ -256,7 +256,7 @@ def main(args):
                                     num_workers=4)
     noise_eval_loader = DataLoader(noise_eval_dataset,
                                    batch_size=args.eval_batch_size,
-                                   num_workers=4)
+                                   num_workers=1)
     test_loader = DataLoader(test_dataset, 
                              batch_size=args.eval_batch_size,
                              num_workers=4)
