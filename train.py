@@ -1,4 +1,5 @@
 from pathlib import Path
+import random
 import argparse
 import numpy as np
 import json
@@ -100,7 +101,6 @@ class ModelLightning(LightningModule):
         lr = self.trainer.optimizers[0].param_groups[0]['lr']
         self.log('lr', lr, on_step=False, on_epoch=True, prog_bar=True)
 
-
     def compute_calibration_scores(self, calibration_loader):
         self.eval()
         if torch.cuda.is_available():
@@ -146,6 +146,36 @@ class ModelLightning(LightningModule):
         return pvalues_tensor
 
 
+class LabelBalancedSampler(torch.utils.data.Sampler):
+    def __init__(self, dataset, num_class, num_samples):
+        self.dataset = dataset
+        self.num_class = num_class
+        self.num_samples = num_samples
+
+    def __len__(self):
+        return self.num_samples
+
+    def __iter__(self):
+        train_indices = self.dataset.indices.cpu().tolist()
+        labels = self.dataset.dataset.img_labels
+        num_class = self.num_class
+        num_samples = self.num_samples
+
+        indices = list(range(len(self.dataset)))
+        random.shuffle(indices)
+        class_num = torch.zeros(num_class)
+        sampled_train_indices = []
+        for ind in indices:
+            index = train_indices[ind]
+            label = labels.iloc[index, 1]
+            if class_num[label] < (num_samples / num_class):
+                sampled_train_indices.append(ind)
+                class_num[label] += 1
+            if len(sampled_train_indices) >= num_samples:
+                break
+        yield from iter(sampled_train_indices)
+
+
 def main(args):
 
     # Set seed
@@ -171,13 +201,13 @@ def main(args):
         ])
     elif args.dataset == "clothing1M":
         train_transform = transforms.Compose([
-            transforms.Resize(256),  # Resize the image to 256 x 256
-            transforms.CenterCrop(224),  # Crop the middle 224 x 224
-            #transforms.RandomResizedCrop(224, scale=(0.2, 1.)),  # Crop the middle 224 x 224
-            transforms.RandomCrop(size=224, padding=32),
+            #transforms.Resize(256),  # Resize the image to 256 x 256
+            #transforms.CenterCrop(224),  # Crop the middle 224 x 224
+            transforms.RandomResizedCrop(224, scale=(0.2, 1.)),  # Crop the middle 224 x 224
+            #transforms.RandomCrop(size=224, padding=32),
             transforms.RandomHorizontalFlip(),
-            #transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8),
-            #transforms.RandomGrayscale(p=0.2),
+            transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8),
+            transforms.RandomGrayscale(p=0.2),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # Normalize with ImageNet stats
         ])
@@ -340,6 +370,8 @@ def main(args):
     preds[indices[:k]] = 0
     preds = preds.bool()
 
+    # preds = torch.empty(len(noise_eval_dataset)).uniform_(0.5, 1).bernoulli() 
+
     # Compute scores if we know true labels (not the case for clothing1M)
     if args.dataset in ["cifar-10", "cifar-100"]:
         fdr_score = fdr(true_labels, noisy_labels, preds)
@@ -357,10 +389,13 @@ def main(args):
             targets = torch.tensor(detected_clean_dataset.dataset.img_labels.loc[
                                                             detected_clean_dataset.indices
                                                             ][1].values)
-            class_count = torch.bincount(targets)
-            class_weights = 1. / class_count
-            sample_weights = class_weights[targets]
-            sampler = WeightedRandomSampler(sample_weights, args.mini_batch_retrain_size*args.batch_size)
+            if args.use_sampler_from_paper:
+                sampler = LabelBalancedSampler(detected_clean_dataset, 14, args.mini_batch_retrain_size*args.batch_size)
+            else:
+                class_count = torch.bincount(targets)
+                class_weights = 1. / class_count
+                sample_weights = class_weights[targets]
+                sampler = WeightedRandomSampler(sample_weights, args.mini_batch_retrain_size*args.batch_size)
         else:
             detected_clean_dataset = noise_eval_dataset.get_clean_dataset(clean_prediction=preds)
 

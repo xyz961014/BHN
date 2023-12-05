@@ -312,7 +312,7 @@ def main(args):
     trainer.test(model, test_loader)
 
     # Compute scores on calibration set
-    calibration_scores = model.compute_calibration_scores(calibration_loader)
+    #calibration_scores = model.compute_calibration_scores(calibration_loader)
 
     ###############################################
     # TODO: Inference on noise_eval_dataset
@@ -321,21 +321,21 @@ def main(args):
     # calibration_scores as model attribute, shape [M]
     # noise_eval_dataset the dataset containing (X, Y~)
 
-    noisy_pvalues = model.eval_pvalues(noise_eval_loader).cpu()
+    #noisy_pvalues = model.eval_pvalues(noise_eval_loader).cpu()
 
-    sorted_noisy_pvalue, indices = torch.sort(noisy_pvalues)
+    #sorted_noisy_pvalue, indices = torch.sort(noisy_pvalues)
 
-    N = sorted_noisy_pvalue.shape[0]
-    bh_threshold = (torch.arange(N) + 1) * args.alpha / N
-    bh_indice = torch.nonzero((sorted_noisy_pvalue <= bh_threshold))
-    if bh_indice.numel() > 0:
-        k = bh_indice.max()
-    else:
-        k = 0
+    #N = sorted_noisy_pvalue.shape[0]
+    #bh_threshold = (torch.arange(N) + 1) * args.alpha / N
+    #bh_indice = torch.nonzero((sorted_noisy_pvalue <= bh_threshold))
+    #if bh_indice.numel() > 0:
+    #    k = bh_indice.max()
+    #else:
+    #    k = 0
 
-    preds = torch.ones_like(noisy_pvalues)
-    preds[indices[:k]] = 0
-    preds = preds.bool()
+    #preds = torch.ones_like(noisy_pvalues)
+    #preds[indices[:k]] = 0
+    #preds = preds.bool()
 
     # Compute scores if we know true labels (not the case for clothing1M)
     if args.dataset in ["cifar-10", "cifar-100"]:
@@ -353,9 +353,7 @@ def main(args):
             # MODIFICATION
             #detected_clean_dataset = noise_dataset.get_clean_dataset(clean_prediction=preds)
             detected_clean_dataset = noise_dataset
-            targets = torch.tensor(detected_clean_dataset.dataset.img_labels.loc[
-                                                            detected_clean_dataset.indices
-                                                            ][1].values)
+            targets = torch.tensor(detected_clean_dataset.img_labels[1].values)
             class_count = torch.bincount(targets)
             class_weights = 1. / class_count
             sample_weights = class_weights[targets]
