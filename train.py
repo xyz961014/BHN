@@ -435,7 +435,6 @@ def main(args):
         else:
             logger = False
 
-        ipdb.set_trace()
         trainer = Trainer(logger=logger, max_epochs=args.num_epochs)
         trainer.fit(model, detected_clean_loader, calibration_loader)
 
