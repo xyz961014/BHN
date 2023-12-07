@@ -205,7 +205,7 @@ def main(args):
         ])
     elif args.dataset == "clothing1M":
         train_transform = transforms.Compose([
-            #transforms.Resize(256),  # Resize the image to 256 x 256
+            transforms.Resize(256),  # Resize the image to 256 x 256
             #transforms.CenterCrop(224),  # Crop the middle 224 x 224
             transforms.RandomResizedCrop(224, scale=(0.2, 1.)),  # Crop the middle 224 x 224
             #transforms.RandomCrop(size=224, padding=32),
@@ -375,7 +375,7 @@ def main(args):
     preds[indices[:k]] = 0
     preds = preds.bool()
 
-    preds = torch.empty(len(noise_dataset)).uniform_(0.5, 1).bernoulli() 
+    # preds = torch.empty(len(noise_dataset)).uniform_(0.5, 1).bernoulli() 
 
     # Compute scores if we know true labels (not the case for clothing1M)
     if args.dataset in ["cifar-10", "cifar-100"]:
@@ -435,6 +435,7 @@ def main(args):
         else:
             logger = False
 
+        ipdb.set_trace()
         trainer = Trainer(logger=logger, max_epochs=args.num_epochs)
         trainer.fit(model, detected_clean_loader, calibration_loader)
 
