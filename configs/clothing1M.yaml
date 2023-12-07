@@ -39,3 +39,4 @@ logger: wandb # Tensorboard or Wandb
 skip_first_training: false # Skip training on the clean set
 train_final: true # Train on all clean data
 load_path: null # Run path to load checkpoint from
+use_sampler_from_paper: false

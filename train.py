@@ -156,8 +156,8 @@ class LabelBalancedSampler(torch.utils.data.Sampler):
         return self.num_samples
 
     def __iter__(self):
-        train_indices = self.dataset.indices.cpu().tolist()
-        labels = self.dataset.dataset.img_labels
+        #train_indices = self.dataset.indices.cpu().tolist()
+        #labels = self.dataset.dataset.img_labels
         num_class = self.num_class
         num_samples = self.num_samples
 
@@ -166,8 +166,9 @@ class LabelBalancedSampler(torch.utils.data.Sampler):
         class_num = torch.zeros(num_class)
         sampled_train_indices = []
         for ind in indices:
-            index = train_indices[ind]
-            label = labels.iloc[index, 1]
+            #index = train_indices[ind]
+            #label = labels.iloc[index, 1]
+            label = self.dataset[ind][1]
             if class_num[label] < (num_samples / num_class):
                 sampled_train_indices.append(ind)
                 class_num[label] += 1
@@ -342,10 +343,10 @@ def main(args):
         trainer = Trainer(logger=False)
 
     # Test the model 
-    trainer.test(model, test_loader)
+    ##trainer.test(model, test_loader)
 
     # Compute scores on calibration set
-    calibration_scores = model.compute_calibration_scores(calibration_loader)
+    ##calibration_scores = model.compute_calibration_scores(calibration_loader)
 
     ###############################################
     # TODO: Inference on noise_eval_dataset
@@ -354,23 +355,23 @@ def main(args):
     # calibration_scores as model attribute, shape [M]
     # noise_eval_dataset the dataset containing (X, Y~)
 
-    noisy_pvalues = model.eval_pvalues(noise_eval_loader).cpu()
+    ##noisy_pvalues = model.eval_pvalues(noise_eval_loader).cpu()
 
-    sorted_noisy_pvalue, indices = torch.sort(noisy_pvalues)
+    ##sorted_noisy_pvalue, indices = torch.sort(noisy_pvalues)
 
-    N = sorted_noisy_pvalue.shape[0]
-    bh_threshold = (torch.arange(N) + 1) * args.alpha / N
-    bh_indice = torch.nonzero((sorted_noisy_pvalue <= bh_threshold))
-    if bh_indice.numel() > 0:
-        k = bh_indice.max()
-    else:
-        k = 0
+    ##N = sorted_noisy_pvalue.shape[0]
+    ##bh_threshold = (torch.arange(N) + 1) * args.alpha / N
+    ##bh_indice = torch.nonzero((sorted_noisy_pvalue <= bh_threshold))
+    ##if bh_indice.numel() > 0:
+    ##    k = bh_indice.max()
+    ##else:
+    ##    k = 0
 
-    preds = torch.ones_like(noisy_pvalues)
-    preds[indices[:k]] = 0
-    preds = preds.bool()
+    ##preds = torch.ones_like(noisy_pvalues)
+    ##preds[indices[:k]] = 0
+    ##preds = preds.bool()
 
-    # preds = torch.empty(len(noise_eval_dataset)).uniform_(0.5, 1).bernoulli() 
+    preds = torch.empty(len(noise_eval_dataset)).uniform_(0.5, 1).bernoulli() 
 
     # Compute scores if we know true labels (not the case for clothing1M)
     if args.dataset in ["cifar-10", "cifar-100"]:
