@@ -311,6 +311,7 @@ def main(args):
         elif len(ckpt_files) > 0:
             try:
                 model = ModelLightning.load_from_checkpoint(ckpt_files[0])
+                print("Loaded the model: {}".format(ckpt_files[0]))
             except Exception as e:
                 print("Failed to load the model, {}.".format(e))
         else:
