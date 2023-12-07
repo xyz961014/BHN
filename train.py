@@ -108,9 +108,12 @@ class ModelLightning(LightningModule):
         with torch.no_grad():
             scores = []
             accuracies = []
+            #class_num = torch.zeros(14)
             for batch in tqdm(calibration_loader, desc="Computing calibration scores"):
                 x, y = batch
                 x, y = x.to(self.device), y.to(self.device)
+                #for l in y:
+                #    class_num[l] += 1
                 y_hat = self.forward(x)
                 batch_score = -F.cross_entropy(y_hat, y, reduction="none")
                 batch_accuracy = (y_hat.argmax(dim=1) == y).float()
@@ -156,8 +159,8 @@ class LabelBalancedSampler(torch.utils.data.Sampler):
         return self.num_samples
 
     def __iter__(self):
-        #train_indices = self.dataset.indices.cpu().tolist()
-        #labels = self.dataset.dataset.img_labels
+        train_indices = self.dataset.indices.cpu().tolist()
+        labels = self.dataset.dataset.img_labels
         num_class = self.num_class
         num_samples = self.num_samples
 
@@ -166,15 +169,15 @@ class LabelBalancedSampler(torch.utils.data.Sampler):
         class_num = torch.zeros(num_class)
         sampled_train_indices = []
         for ind in indices:
-            #index = train_indices[ind]
-            #label = labels.iloc[index, 1]
-            label = self.dataset[ind][1]
+            #label = self.dataset[ind][1]
+            index = train_indices[ind]
+            label = labels.iloc[index, 1]
             if class_num[label] < (num_samples / num_class):
                 sampled_train_indices.append(ind)
                 class_num[label] += 1
             if len(sampled_train_indices) >= num_samples:
                 break
-        yield from iter(sampled_train_indices)
+        yield from sampled_train_indices
 
 
 def main(args):
@@ -372,7 +375,7 @@ def main(args):
     preds[indices[:k]] = 0
     preds = preds.bool()
 
-    # preds = torch.empty(len(noise_eval_dataset)).uniform_(0.5, 1).bernoulli() 
+    preds = torch.empty(len(noise_dataset)).uniform_(0.5, 1).bernoulli() 
 
     # Compute scores if we know true labels (not the case for clothing1M)
     if args.dataset in ["cifar-10", "cifar-100"]:
@@ -392,7 +395,9 @@ def main(args):
                                                             detected_clean_dataset.indices
                                                             ][1].values)
             if args.use_sampler_from_paper:
-                sampler = LabelBalancedSampler(detected_clean_dataset, 14, args.mini_batch_retrain_size*args.batch_size)
+                sampler = LabelBalancedSampler(detected_clean_dataset, 
+                                               14, 
+                                               args.mini_batch_retrain_size*args.batch_size)
             else:
                 class_count = torch.bincount(targets)
                 class_weights = 1. / class_count
@@ -401,6 +406,9 @@ def main(args):
         else:
             detected_clean_dataset = noise_eval_dataset.get_clean_dataset(clean_prediction=preds)
 
+        #sampler = torch.utils.data.RandomSampler(detected_clean_dataset, 
+        #                                         replacement=True,
+        #                                         num_samples=args.mini_batch_retrain_size*args.batch_size)
         detected_clean_loader = DataLoader(detected_clean_dataset,
                                            sampler=sampler,
                                            batch_size=args.batch_size, 
