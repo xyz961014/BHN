@@ -224,7 +224,7 @@ def main(args):
             
     # Load CIFAR-10 dataset
     if args.dataset == "cifar-10":
-        rain_dataset = CIFAR10(root=args.data_root, train=True, download=True, transform=train_transform)
+        train_dataset = CIFAR10(root=args.data_root, train=True, download=True, transform=train_transform)
         test_dataset = CIFAR10(root=args.data_root, train=False, download=True, transform=test_transform)
 
     elif args.dataset == "cifar-100":
